@@ -3,6 +3,7 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
+const path = require('path'); // <-- Añadido para asegurar que encuentre el dashboard
 require('dotenv').config();
 
 const app = express();
@@ -39,31 +40,23 @@ const auth = new google.auth.GoogleAuth({
 });
 const calendar = google.calendar({ version: 'v3', auth });
 
-// 3. Configuración del servicio de correo con Nodemailer (con Timeouts)
+// 3. Configuración del servicio de correo con Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  connectionTimeout: 10000,
-  greetingTimeout: 5000,
-  socketTimeout: 10000
 });
 
-// 4. Ruta GET para consultar los horarios reservados (booked-slots)
+// 4. Ruta GET para consultar los horarios reservados
 app.get('/api/booked-slots', async (req, res) => {
   const { date, barber } = req.query;
-  console.log(`🔍 Consultando slots reservados para fecha: ${date}, barbero: ${barber}`);
-
-  if (!date) {
-    return res.status(400).json({ error: 'Falta la fecha.' });
-  }
+  if (!date) return res.status(400).json({ error: 'Falta la fecha.' });
 
   try {
     let bookedTimes = [];
 
-    // A. Buscar en la base de datos SQLite local
     await new Promise((resolve) => {
       let query = `SELECT time FROM appointments WHERE date = ?`;
       let params = [date];
@@ -74,14 +67,11 @@ app.get('/api/booked-slots', async (req, res) => {
       }
 
       db.all(query, params, (err, rows) => {
-        if (!err && rows) {
-          bookedTimes = rows.map(r => r.time);
-        }
+        if (!err && rows) bookedTimes = rows.map(r => r.time);
         resolve();
       });
     });
 
-    // B. Buscar también en Google Calendar si está configurado
     const calendarId = process.env.CALENDAR_ID;
     if (calendarId) {
       try {
@@ -89,36 +79,26 @@ app.get('/api/booked-slots', async (req, res) => {
         const timeMax = new Date(`${date}T23:59:59`).toISOString();
 
         const freeBusyCheck = await calendar.freebusy.query({
-          requestBody: {
-            timeMin,
-            timeMax,
-            items: [{ id: calendarId }],
-          },
+          requestBody: { timeMin, timeMax, items: [{ id: calendarId }] },
         });
 
         const busySlots = freeBusyCheck.data.calendars[calendarId].busy || [];
-        
         busySlots.forEach(busy => {
-          const startDate = new Date(busy.start);
-          const horaStr = startDate.toTimeString().substring(0, 5);
-          if (!bookedTimes.includes(horaStr)) {
-            bookedTimes.push(horaStr);
-          }
+          const horaStr = new Date(busy.start).toTimeString().substring(0, 5);
+          if (!bookedTimes.includes(horaStr)) bookedTimes.push(horaStr);
         });
       } catch (calErr) {
-        console.warn('⚠️ No se pudo consultar Google Calendar para los booked-slots:', calErr.message);
+        console.warn('⚠️ Error Calendar:', calErr.message);
       }
     }
 
     res.json({ bookedSlots: bookedTimes });
-
   } catch (err) {
-    console.error('❌ Error en /api/booked-slots:', err.message);
     res.status(500).json({ error: 'Error al consultar horarios reservados.' });
   }
 });
 
-// 5. Ruta principal para agendar citas
+// 5. Ruta principal para agendar citas (CORREGIDA PARA NO CONGELARSE)
 app.post('/api/agendar', async (req, res) => {
   const { name, email, service, date, time, barber, clientPhone } = req.body;
 
@@ -150,73 +130,50 @@ app.post('/api/agendar', async (req, res) => {
             end: { dateTime: endString, timeZone: timeZone },
           },
         });
-        console.log('📅 Evento creado exitosamente en Google Calendar.');
       } catch (calError) {
-        console.warn('⚠️ No se pudo sincronizar con Google Calendar:', calError.message);
+        console.warn('⚠️ No se pudo sincronizar Calendar:', calError.message);
       }
     }
 
     db.run(
       `INSERT INTO appointments (barber, service, date, time, client_name, client_phone, client_email) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [barberName, service, date, time, name, clientPhone || '', emailFinal],
-      async function (err) {
+      function (err) {
         if (err) {
-          console.error('Error en la base de datos:', err);
-          return res.status(500).json({ error: 'Error al guardar la cita en la base de datos.' });
+          return res.status(500).json({ error: 'Error al guardar la cita.' });
         }
 
-        console.log(`✅ Cita guardada en BD: ${name} - ${date} @ ${time}`);
+        // 🚀 ¡AQUÍ ESTÁ LA MAGIA! Respondemos al cliente INMEDIATAMENTE.
+        res.json({ success: true, message: '¡Cita agendada con éxito!' });
 
-        try {
-          const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
+        // ✉️ El correo se envía en segundo plano (sin 'await').
+        const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
+        const mailOptions = {
+          from: `"Barbería & Peluquería Elite" <${process.env.EMAIL_USER}>`,
+          to: [emailFinal, targetBarberEmail],
+          subject: '¡Confirmación de tu Cita!',
+          html: `<p>Hola ${name}, tu cita para ${service} el ${date} a las ${time} ha sido reservada.</p>`,
+        };
 
-          const mailOptions = {
-            from: `"Barbería & Peluquería Elite" <${process.env.EMAIL_USER}>`,
-            to: [emailFinal, targetBarberEmail],
-            subject: '¡Confirmación de tu Cita!',
-            html: `
-              <div style="font-family: Arial, sans-serif; background-color: #0b0b0b; color: #f5f5f5; padding: 25px; border-radius: 8px;">
-                <h2 style="color: #c5a059; border-bottom: 1px solid #333; padding-bottom: 10px;">¡Hola ${name}!</h2>
-                <p>Tu cita se ha reservado exitosamente. Aquí tienes los detalles:</p>
-                <div style="background-color: #161616; padding: 15px; border-left: 4px solid #c5a059; margin: 15px 0; border-radius: 4px;">
-                  <p style="margin: 5px 0;"><strong>Servicio:</strong> ${service}</p>
-                  <p style="margin: 5px 0;"><strong>Fecha:</strong> ${date}</p>
-                  <p style="margin: 5px 0;"><strong>Hora:</strong> ${time} hrs</p>
-                  <p style="margin: 5px 0;"><strong>Barbero:</strong> ${barberName}</p>
-                </div>
-                <p style="color: #888; font-size: 0.85rem;">Te esperamos a tiempo. ¡Muchas gracias por elegirnos!</p>
-              </div>
-            `,
-          };
-
-          await transporter.sendMail(mailOptions);
-          console.log(`✉️ Correo enviado con éxito a: ${emailFinal} y ${targetBarberEmail}`);
-
-          res.json({ success: true, message: '¡Cita agendada con éxito!' });
-
-        } catch (mailErr) {
-          console.error('❌ Error enviando correo:', mailErr.message);
-          res.status(500).json({ error: 'La cita se guardó pero ocurrió un error al enviar los correos.' });
-        }
+        transporter.sendMail(mailOptions)
+          .then(() => console.log(`✉️ Correo enviado en segundo plano.`))
+          .catch(mailErr => console.error('❌ Error enviando correo (fondo):', mailErr.message));
       }
     );
-
   } catch (err) {
-    console.error('❌ Error general en la ruta agendar:', err.message || err);
     res.status(500).json({ error: 'Ocurrió un problema al procesar la cita.' });
   }
 });
 
-// 6. Dashboard: Rutas del panel (ambas apuntan a admin.html dentro de la carpeta public)
+// 6. Dashboard: Rutas del panel de administración (RUTAS BLINDADAS)
 app.get('/dashboard', (req, res) => {
-  res.sendFile(__dirname + '/public/admin.html');
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.get('/admin', (req, res) => {
-  res.sendFile(__dirname + '/public/admin.html');
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Ruta API para obtener las citas en el dashboard
 app.get('/api/admin/appointments', (req, res) => {
   db.all(`SELECT * FROM appointments ORDER BY date DESC, time DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -233,6 +190,4 @@ app.delete('/api/admin/cancel/:id', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
