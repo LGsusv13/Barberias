@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin | Barbería</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background: #f1f5f9; padding: 24px; color: #0f172a; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
+    h1 { font-size: 1.4rem; color: #1e293b; }
+    .refresh-btn { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+    th { background: #f8fafc; color: #475569; }
+    .btn-cancel { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+    .btn-cancel:hover { background: #dc2626; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1>💈 Dashboard - Citas Registradas</h1>
+      <button class="refresh-btn" onclick="loadAppointments()">🔄 Actualizar</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha y Hora</th>
+          <th>Cliente</th>
+          <th>Teléfono</th>
+          <th>Barbero</th>
+          <th>Servicio</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="appointments-list">
+        <tr><td colspan="6">Cargando la lista de citas...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    async function loadAppointments() {
+      const tbody = document.getElementById('appointments-list');
+      tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+
+      try {
+        const res = await fetch('/api/admin/appointments');
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6">No hay citas registradas.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.map(app => `
+          <tr>
+            <td><strong>${app.date}</strong> - ${app.time}</td>
+            <td>${app.client_name}</td>
+            <td>${app.client_phone}</td>
+            <td>${app.barber}</td>
+            <td>${app.service}</td>
+            <td>
+              <button class="btn-cancel" onclick="cancelAppointment(${app.id})">Cancelar</button>
+            </td>
+          </tr>
+        `).join('');
+
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6">Error al cargar la lista.</td></tr>';
+      }
+    }
+
+    async function cancelAppointment(id) {
+      if (!confirm('¿Estás seguro de cancelar esta cita?')) return;
+
+      try {
+        const res = await fetch(`/api/admin/cancel/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('Cita cancelada correctamente.');
+          loadAppointments();
+        } else {
+          alert('Error al intentar cancelar la cita.');
+        }
+      } catch (err) {
+        alert('Error de conexión.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadAppointments);
+  </script>
+</body>
+</html>
