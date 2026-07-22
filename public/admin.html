@@ -3,95 +3,187 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Admin | Barbería</title>
+  <title>Panel de Administración - Barbería & Peluquería Elite</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background: #f1f5f9; padding: 24px; color: #0f172a; }
-    .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
-    h1 { font-size: 1.4rem; color: #1e293b; }
-    .refresh-btn { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
-    th { background: #f8fafc; color: #475569; }
-    .btn-cancel { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
-    .btn-cancel:hover { background: #dc2626; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+    body {
+      background-color: #0b0b0b;
+      color: #f5f5f5;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #161616;
+      padding: 20px 30px;
+      border-radius: 10px;
+      border: 1px solid #222;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    h1 {
+      color: #c5a059;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-refresh {
+      background-color: #c5a059;
+      color: #0b0b0b;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+    .btn-refresh:hover {
+      background-color: #d4af37;
+    }
+    .table-container {
+      background-color: #161616;
+      border-radius: 10px;
+      border: 1px solid #222;
+      overflow-x: auto;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th, td {
+      padding: 15px 20px;
+      border-bottom: 1px solid #222;
+    }
+    th {
+      background-color: #1f1f1f;
+      color: #c5a059;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td {
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+    tr:hover {
+      background-color: #1a1a1a;
+    }
+    .btn-cancel {
+      background-color: #8b0000;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.3s;
+    }
+    .btn-cancel:hover {
+      background-color: #a50000;
+    }
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #777;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <div class="header">
-      <h1>💈 Dashboard - Citas Registradas</h1>
-      <button class="refresh-btn" onclick="loadAppointments()">🔄 Actualizar</button>
-    </div>
+    <header>
+      <h1><i class="fa-solid fa-scissors"></i> Panel de Citas - Elite</h1>
+      <button class="btn-refresh" onclick="cargarCitas()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+    </header>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Fecha y Hora</th>
-          <th>Cliente</th>
-          <th>Teléfono</th>
-          <th>Barbero</th>
-          <th>Servicio</th>
-          <th>Acción</th>
-        </tr>
-      </thead>
-      <tbody id="appointments-list">
-        <tr><td colspan="6">Cargando la lista de citas...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha y Hora</th>
+            <th>Cliente</th>
+            <th>Teléfono</th>
+            <th>Barbero</th>
+            <th>Servicio</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-citas">
+          <tr><td colspan="6" class="no-data">Cargando citas...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <script>
-    async function loadAppointments() {
-      const tbody = document.getElementById('appointments-list');
-      tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+    async function cargarCitas() {
+      const tbody = document.getElementById('tabla-citas');
+      tbody.innerHTML = `<tr><td colspan="6" class="no-data">Cargando citas...</td></tr>`;
 
       try {
-        const res = await fetch('/api/admin/appointments');
-        const data = await res.json();
+        const response = await fetch('/api/admin/appointments');
+        const citas = await response.json();
 
-        if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6">No hay citas registradas.</td></tr>';
+        if (citas.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="no-data">No hay citas registradas.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = data.map(app => `
-          <tr>
-            <td><strong>${app.date}</strong> - ${app.time}</td>
-            <td>${app.client_name}</td>
-            <td>${app.client_phone}</td>
-            <td>${app.barber}</td>
-            <td>${app.service}</td>
-            <td>
-              <button class="btn-cancel" onclick="cancelAppointment(${app.id})">Cancelar</button>
-            </td>
-          </tr>
-        `).join('');
-
-      } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="6">Error al cargar la lista.</td></tr>';
+        tbody.innerHTML = '';
+        citas.forEach(cita => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${cita.date}</strong> - ${cita.time}</td>
+            <td>${cita.client_name}</td>
+            <td>${cita.client_phone || 'N/A'}</td>
+            <td>${cita.barber}</td>
+            <td>${cita.service}</td>
+            <td><button class="btn-cancel" onclick="cancelarCita(${cita.id})">Cancelar</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (error) {
+        console.error('Error al cargar citas:', error);
+        tbody.innerHTML = `<tr><td colspan="6" class="no-data" style="color: #ff6b6b;">Error al cargar las citas del servidor.</td></tr>`;
       }
     }
 
-    async function cancelAppointment(id) {
-      if (!confirm('¿Estás seguro de cancelar esta cita?')) return;
+    async function cancelarCita(id) {
+      if (!confirm('¿Estás seguro de que deseas cancelar esta cita?')) return;
 
       try {
-        const res = await fetch(`/api/admin/cancel/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          alert('Cita cancelada correctamente.');
-          loadAppointments();
+        const response = await fetch(`/api/admin/cancel/${id}`, { method: 'DELETE' });
+        const resultado = await response.json();
+
+        if (resultado.success) {
+          cargarCitas();
         } else {
-          alert('Error al intentar cancelar la cita.');
+          alert('No se pudo cancelar la cita.');
         }
-      } catch (err) {
-        alert('Error de conexión.');
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error de conexión al intentar cancelar.');
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadAppointments);
+    // Cargar al abrir la página
+    cargarCitas();
   </script>
+
 </body>
 </html>
