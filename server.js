@@ -39,13 +39,16 @@ const auth = new google.auth.GoogleAuth({
 });
 const calendar = google.calendar({ version: 'v3', auth });
 
-// 3. Configuración del servicio de correo con Nodemailer
+// 3. Configuración del servicio de correo con Nodemailer (con Timeouts)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 5000,
+  socketTimeout: 10000
 });
 
 // 4. Ruta GET para consultar los horarios reservados (booked-slots)
@@ -204,12 +207,20 @@ app.post('/api/agendar', async (req, res) => {
   }
 });
 
-// 6. Dashboard: Listar citas
+// 6. Dashboard: Rutas del panel (ambas apuntan a admin.html dentro de la carpeta public)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(__dirname + '/public/admin.html');
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/public/admin.html');
+});
+
+// Ruta API para obtener las citas en el dashboard
 app.get('/api/admin/appointments', (req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  db.all(`SELECT * FROM appointments ORDER BY date DESC, time ASC`, [], (err, rows) => {
+  db.all(`SELECT * FROM appointments ORDER BY date DESC, time DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+    res.json(rows);
   });
 });
 
