@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { google } = require('googleapis');
 const path = require('path');
 require('dotenv').config();
@@ -62,26 +62,17 @@ if (process.env.GOOGLE_CREDENTIALS_JSON) {
 const auth = new google.auth.GoogleAuth(googleAuthConfig);
 const calendar = google.calendar({ version: 'v3', auth });
 
-// 3. Configuración del servicio de correo con Nodemailer
-// IMPORTANTE: se especifica host/port explícitos y family: 4 (forzar IPv4).
-// Sin esto, en Render la conexión intenta salir por IPv6 y falla con
-// "connect ENETUNREACH" porque esa red no tiene salida IPv6 disponible.
-// Se usa el puerto 587 (STARTTLS) en vez de 465 (SSL directo), porque el 465
-// puede quedar bloqueado o muy lento en algunas redes de hosting como Render.
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  requireTLS: true,
-  family: 4,
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 15000,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// 3. Configuración del servicio de correo con Resend.
+// Se usa Resend (envío por API/HTTPS) en vez de Gmail por SMTP porque Render
+// bloquea las conexiones SMTP salientes (puertos 465/587), causando "Connection
+// timeout" sin importar la configuración. Resend usa el puerto 443 (HTTPS),
+// el mismo que cualquier página web normal, así que nunca queda bloqueado.
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Mientras no verifiques tu propio dominio en resend.com, solo puedes enviar
+// desde esta dirección de prueba. Una vez verifiques tu dominio, cambia
+// FROM_EMAIL en el .env a algo como "citas@tudominio.com".
+const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
 
 // 4. Autenticación básica para proteger el panel de administración.
 // Definir ADMIN_USER y ADMIN_PASSWORD en el .env (nunca en el código).
@@ -228,17 +219,22 @@ app.post('/api/agendar', async (req, res) => {
         // Respondemos al cliente INMEDIATAMENTE.
         res.json({ success: true, message: '¡Cita agendada con éxito!' });
 
-        // El correo se envía en segundo plano (sin 'await').
+        // El correo se envía en segundo plano, vía Resend (API/HTTPS).
         const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
-        const mailOptions = {
-          from: `"Barbería & Peluquería Elite" <${process.env.EMAIL_USER}>`,
-          to: [emailFinal, targetBarberEmail],
+
+        resend.emails.send({
+          from: `Barbería & Peluquería Elite <${FROM_EMAIL}>`,
+          to: [emailFinal, targetBarberEmail].filter(Boolean),
           subject: '¡Confirmación de tu Cita!',
           html: `<p>Hola ${name}, tu cita para ${service} el ${date} a las ${time} ha sido reservada.</p>`,
-        };
-
-        transporter.sendMail(mailOptions)
-          .then(() => console.log(`✉️ Correo enviado en segundo plano.`))
+        })
+          .then(({ error }) => {
+            if (error) {
+              console.error('❌ Error enviando correo (Resend):', error.message || error);
+            } else {
+              console.log('✉️ Correo enviado en segundo plano (Resend).');
+            }
+          })
           .catch(mailErr => console.error('❌ Error enviando correo (fondo):', mailErr.message));
       }
     );

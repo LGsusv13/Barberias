@@ -2,8 +2,8 @@
 
 ## Qué cambió respecto a la versión original
 
-1. **Estructura de carpetas**: el frontend del cliente (`index.html`, `script.js`, `styles.css`) vive en `/public`. El panel de administración (`dashboard.html`, con su JS ya embebido) vive en `/private`, una carpeta que **no** se sirve como estática — así es imposible acceder a ella escribiendo la URL directa del archivo sin pasar por la autenticación.
-2. **Se eliminó `admin.html`** (duplicado de `dashboard.html`) y también el archivo suelto `dashboard.js` (su contenido ahora está embebido dentro de `dashboard.html`, para no tener un segundo archivo que proteger por separado).
+1. **Estructura de carpetas**: el frontend (`index.html`, `dashboard.html`, `script.js`, `dashboard.js`, `styles.css`) ahora vive en `/public`. El servidor solo expone esa carpeta — así nunca se sirve por accidente `server.js`, `package.json` o tu `.env`.
+2. **Se eliminó `admin.html`**, que era un duplicado casi exacto de `dashboard.html`. Ahora solo existe un panel de administración (`dashboard.html` + `dashboard.js`). La ruta `/admin` sigue funcionando como redirección a `/dashboard`.
 3. **El panel `/dashboard` ahora requiere usuario y contraseña** (autenticación básica HTTP), configurables con `ADMIN_USER` y `ADMIN_PASSWORD` en el `.env`. Antes cualquiera con el link veía y cancelaba citas.
 4. **Credenciales de Google Calendar aptas para Render**: además del `credentials.json` local, el servidor ahora también acepta el contenido completo de ese archivo pegado en la variable `GOOGLE_CREDENTIALS_JSON` (necesario porque Render no permite subir archivos persistentes).
 5. **Validaciones nuevas**: no se puede reservar una fecha/hora que ya pasó, y se verifica que el horario no se haya ocupado justo antes de guardar (evita choques de doble reserva).
