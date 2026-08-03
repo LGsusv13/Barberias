@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs');
 const { Resend } = require('resend');
 const { google } = require('googleapis');
 const path = require('path');
@@ -19,27 +19,35 @@ app.use(express.static(PUBLIC_DIR));
 // (antes /dashboard.html se veía sin pedir usuario/clave porque estaba en public/).
 const PRIVATE_DIR = path.join(__dirname, 'private');
 
-// 1. Base de datos SQLite
-const db = new sqlite3.Database('./appointments.db', (err) => {
-  if (err) console.error('Error al conectar con SQLite:', err);
-  else console.log('>>> Base de datos SQLite lista.');
-});
+// 1. Almacenamiento de citas en un archivo JSON.
+// Se usa esto (en vez de sqlite3) porque el paquete sqlite3 necesita compilar
+// código nativo en C, y en Render la imagen donde se compila no siempre coincide
+// con la imagen donde se ejecuta, causando errores de "GLIBC_2.38 not found"
+// que no se pueden arreglar con configuración. Un archivo JSON es JavaScript
+// puro: nunca tiene ese problema.
+//
+// IMPORTANTE: el disco de Render (plan gratuito) es efímero — el archivo se
+// borra en cada nuevo deploy. Para conservar las citas de forma permanente entre
+// deploys, hay que agregar un "Persistent Disk" en Render (tiene costo) o migrar
+// a una base de datos administrada como Render Postgres (tiene un plan gratis).
+const DB_FILE = path.join(__dirname, 'appointments.json');
 
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS appointments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      barber TEXT,
-      service TEXT,
-      date TEXT,
-      time TEXT,
-      client_name TEXT,
-      client_phone TEXT,
-      client_email TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-});
+function leerCitas() {
+  try {
+    if (!fs.existsSync(DB_FILE)) return [];
+    const raw = fs.readFileSync(DB_FILE, 'utf-8');
+    return raw.trim() ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.error('Error leyendo appointments.json:', err.message);
+    return [];
+  }
+}
+
+function guardarCitas(citas) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(citas, null, 2), 'utf-8');
+}
+
+console.log('>>> Almacenamiento de citas (JSON) listo.');
 
 // 2. Configuración de Google Calendar API con Cuenta de Servicio
 // En Render no se puede subir credentials.json como archivo persistente, así que
@@ -106,22 +114,10 @@ app.get('/api/booked-slots', async (req, res) => {
   if (!date) return res.status(400).json({ error: 'Falta la fecha.' });
 
   try {
-    let bookedTimes = [];
-
-    await new Promise((resolve) => {
-      let query = `SELECT time FROM appointments WHERE date = ?`;
-      let params = [date];
-
-      if (barber && barber !== 'Cualquiera' && barber.trim() !== '') {
-        query += ` AND barber = ?`;
-        params.push(barber);
-      }
-
-      db.all(query, params, (err, rows) => {
-        if (!err && rows) bookedTimes = rows.map(r => r.time);
-        resolve();
-      });
-    });
+    const citas = leerCitas();
+    let bookedTimes = citas
+      .filter(c => c.date === date && (!barber || barber === 'Cualquiera' || barber.trim() === '' || c.barber === barber))
+      .map(c => c.time);
 
     const calendarId = process.env.CALENDAR_ID;
     if (calendarId) {
@@ -173,13 +169,8 @@ app.post('/api/agendar', async (req, res) => {
 
   try {
     // Verificar que el horario no esté ya ocupado (evita doble reserva por carrera)
-    const yaOcupado = await new Promise((resolve) => {
-      db.get(
-        `SELECT id FROM appointments WHERE date = ? AND time = ? AND barber = ?`,
-        [date, time, barberName],
-        (err, row) => resolve(!!row)
-      );
-    });
+    const citas = leerCitas();
+    const yaOcupado = citas.some(c => c.date === date && c.time === time && c.barber === barberName);
 
     if (yaOcupado) {
       return res.status(409).json({ error: 'Ese horario ya fue reservado. Por favor elige otro.' });
@@ -208,36 +199,41 @@ app.post('/api/agendar', async (req, res) => {
       }
     }
 
-    db.run(
-      `INSERT INTO appointments (barber, service, date, time, client_name, client_phone, client_email) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [barberName, service, date, time, name, clientPhone || '', emailFinal],
-      function (err) {
-        if (err) {
-          return res.status(500).json({ error: 'Error al guardar la cita.' });
+    const nuevaCita = {
+      id: citas.length > 0 ? Math.max(...citas.map(c => c.id)) + 1 : 1,
+      barber: barberName,
+      service,
+      date,
+      time,
+      client_name: name,
+      client_phone: clientPhone || '',
+      client_email: emailFinal,
+      created_at: new Date().toISOString(),
+    };
+
+    citas.push(nuevaCita);
+    guardarCitas(citas);
+
+    // Respondemos al cliente INMEDIATAMENTE.
+    res.json({ success: true, message: '¡Cita agendada con éxito!' });
+
+    // El correo se envía en segundo plano, vía Resend (API/HTTPS).
+    const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
+
+    resend.emails.send({
+      from: `Barbería & Peluquería Elite <${FROM_EMAIL}>`,
+      to: [emailFinal, targetBarberEmail].filter(Boolean),
+      subject: '¡Confirmación de tu Cita!',
+      html: `<p>Hola ${name}, tu cita para ${service} el ${date} a las ${time} ha sido reservada.</p>`,
+    })
+      .then(({ error }) => {
+        if (error) {
+          console.error('❌ Error enviando correo (Resend):', error.message || error);
+        } else {
+          console.log('✉️ Correo enviado en segundo plano (Resend).');
         }
-
-        // Respondemos al cliente INMEDIATAMENTE.
-        res.json({ success: true, message: '¡Cita agendada con éxito!' });
-
-        // El correo se envía en segundo plano, vía Resend (API/HTTPS).
-        const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
-
-        resend.emails.send({
-          from: `Barbería & Peluquería Elite <${FROM_EMAIL}>`,
-          to: [emailFinal, targetBarberEmail].filter(Boolean),
-          subject: '¡Confirmación de tu Cita!',
-          html: `<p>Hola ${name}, tu cita para ${service} el ${date} a las ${time} ha sido reservada.</p>`,
-        })
-          .then(({ error }) => {
-            if (error) {
-              console.error('❌ Error enviando correo (Resend):', error.message || error);
-            } else {
-              console.log('✉️ Correo enviado en segundo plano (Resend).');
-            }
-          })
-          .catch(mailErr => console.error('❌ Error enviando correo (fondo):', mailErr.message));
-      }
-    );
+      })
+      .catch(mailErr => console.error('❌ Error enviando correo (fondo):', mailErr.message));
   } catch (err) {
     res.status(500).json({ error: 'Ocurrió un problema al procesar la cita.' });
   }
@@ -252,21 +248,33 @@ app.get('/dashboard', requireAdminAuth, (req, res) => {
 app.get('/admin', (req, res) => res.redirect('/dashboard'));
 
 app.get('/api/admin/appointments', requireAdminAuth, (req, res) => {
-  db.all(`SELECT * FROM appointments ORDER BY date DESC, time DESC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  try {
+    const citas = leerCitas().sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return a.time < b.time ? 1 : -1;
+    });
+    res.json(citas);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 8. Dashboard: Cancelar cita (PROTEGIDA, y ahora verifica que sí existía)
 app.delete('/api/admin/cancel/:id', requireAdminAuth, (req, res) => {
-  db.run(`DELETE FROM appointments WHERE id = ?`, [req.params.id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) {
+  try {
+    const idBuscado = Number(req.params.id);
+    const citas = leerCitas();
+    const nuevasCitas = citas.filter(c => c.id !== idBuscado);
+
+    if (nuevasCitas.length === citas.length) {
       return res.status(404).json({ error: 'La cita no existe o ya fue cancelada.' });
     }
+
+    guardarCitas(nuevasCitas);
     res.json({ success: true });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
