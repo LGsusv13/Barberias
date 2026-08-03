@@ -95,7 +95,6 @@
       padding: 10px 15px;
       outline: none;
       font-size: 0.85rem;
-      border-radius: 4px;
     }
 
     .search-box input {
@@ -114,7 +113,6 @@
       padding: 10px 15px;
       cursor: pointer;
       font-size: 0.8rem;
-      border-radius: 4px;
     }
     .btn-clear:hover { color: #fff; border-color: #555; }
 
@@ -141,6 +139,35 @@
     .btn-action { padding: 6px 12px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; border-radius: 2px; }
     .btn-cancel { background: #2a1010; color: #ef4444; border: 1px solid #4a1a1a; transition: all 0.2s; }
     .btn-cancel:hover { background: #ef4444; color: #fff; }
+
+    /* Responsive móvil */
+    @media (max-width: 768px) {
+      body { padding: 20px 12px; }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+
+      .brand-title h1 { font-size: 1.4rem; }
+
+      .btn-refresh { width: 100%; justify-content: center; }
+
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+      .metric-card { padding: 14px; }
+
+      .controls-bar { flex-direction: column; align-items: stretch; }
+
+      .controls-bar input, .controls-bar select, .btn-clear { width: 100%; }
+
+      th, td { padding: 10px; font-size: 0.8rem; }
+    }
+
+    @media (max-width: 420px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -227,109 +254,126 @@
   </div>
 
   <script>
-    // Lógica interna para conectar con tu API de backend
-    let todasLasCitas = [];
+let allAppointments = [];
 
-    async function cargarCitasDashboard() {
-      try {
-        const res = await fetch('/api/admin/appointments');
-        const data = await res.json();
-        todasLasCitas = data;
-        mostrarCitas(todasLasCitas);
-        actualizarMetricas(todasLasCitas);
-      } catch (error) {
-        console.error('Error al cargar citas:', error);
-        document.getElementById('appointments-list').innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444; padding: 30px;">Error al conectar con el servidor</td></tr>`;
-      }
+const servicePrices = {
+  'Corte de Cabello': 20,
+  'Corte Clasico & Peinado': 20,
+  'Corte y Barba': 15,
+  'Ritual de Barba Tradicional': 15,
+  'Experiencia Elite': 30
+};
+
+async function cargarCitasDashboard() {
+  const tableBody = document.getElementById('appointments-list');
+  if (!tableBody) return;
+
+  try {
+    const res = await fetch('/api/admin/appointments?t=' + new Date().getTime());
+    allAppointments = await res.json();
+
+    calcularMetricas(allAppointments);
+    filtrarCitas();
+
+  } catch (err) {
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#ef4444; padding: 20px;">Error al conectar con la base de datos.</td></tr>';
+    }
+  }
+}
+
+function calcularMetricas(citas) {
+  document.getElementById('metric-total').textContent = citas.length;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const citasHoy = citas.filter(c => c.date === todayStr);
+  document.getElementById('metric-today').textContent = citasHoy.length;
+
+  let totalRevenue = 0;
+  const barberCounts = {};
+  const serviceCounts = {};
+
+  citas.forEach(cita => {
+    const price = servicePrices[cita.service] || 20;
+    totalRevenue += price;
+
+    if (cita.barber) {
+      barberCounts[cita.barber] = (barberCounts[cita.barber] || 0) + 1;
     }
 
-    function mostrarCitas(citas) {
-      const tbody = document.getElementById('appointments-list');
-      if (!citas.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding: 30px;">No se encontraron citas registradas.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = citas.map(c => `
-        <tr>
-          <td class="time-col">${c.date} - ${c.time}</td>
-          <td><span class="client-name">${c.client_name}</span></td>
-          <td>${c.client_phone || 'N/A'}</td>
-          <td>${c.barber}</td>
-          <td><span class="badge-service">${c.service}</span></td>
-          <td><button class="btn-action btn-cancel" onclick="cancelarCita(${c.id})">Cancelar</button></td>
-        </tr>
-      `).join('');
+    if (cita.service) {
+      serviceCounts[cita.service] = (serviceCounts[cita.service] || 0) + 1;
     }
+  });
 
-    async function cancelarCita(id) {
-      if (!confirm('¿Estás seguro de cancelar esta cita?')) return;
-      try {
-        const res = await fetch(`/api/admin/cancel/${id}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-          cargarCitasDashboard();
-        } else {
-          alert('No se pudo cancelar la cita');
-        }
-      } catch (err) {
-        console.error('Error:', err);
-        alert('Error de red al cancelar');
-      }
-    }
+  document.getElementById('metric-revenue').textContent = `$${totalRevenue.toFixed(2)}`;
 
-    function filtrarCitas() {
-      const query = document.getElementById('search-input').value.toLowerCase();
-      const fechaFiltro = document.getElementById('filter-date').value;
-      const barberoFiltro = document.getElementById('filter-barber').value;
+  const topBarber = Object.keys(barberCounts).reduce((a, b) => barberCounts[a] > barberCounts[b] ? a : b, '-');
+  document.getElementById('metric-barber').textContent = topBarber !== '-' ? topBarber : 'N/A';
 
-      const filtradas = todasLasCitas.filter(c => {
-        const coincideTexto = (c.client_name && c.client_name.toLowerCase().includes(query)) || 
-                              (c.client_phone && c.client_phone.toLowerCase().includes(query));
-        const coincideFecha = !fechaFiltro || c.date === fechaFiltro;
-        const coincideBarbero = !barberoFiltro || c.barber === barberoFiltro;
+  const topService = Object.keys(serviceCounts).reduce((a, b) => serviceCounts[a] > serviceCounts[b] ? a : b, '-');
+  document.getElementById('metric-service').textContent = topService !== '-' ? topService : 'N/A';
+}
 
-        return coincideTexto && coincideFecha && coincideBarbero;
-      });
+function renderizarTabla(citas) {
+  const tableBody = document.getElementById('appointments-list');
 
-      mostrarCitas(filtradas);
-    }
+  if (!citas || citas.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding: 25px;">No se encontraron citas con los filtros aplicados.</td></tr>';
+    return;
+  }
 
-    function limpiarFiltros() {
-      document.getElementById('search-input').value = '';
-      document.getElementById('filter-date').value = '';
-      document.getElementById('filter-barber').value = '';
-      mostrarCitas(todasLasCitas);
-    }
+  tableBody.innerHTML = citas.map(app => `
+    <tr>
+      <td class="time-col">${app.date || 'N/A'}<br><span style="color:#c5a059;">${app.time || ''} hs</span></td>
+      <td>
+        <span class="client-name">${app.client_name || 'Sin nombre'}</span><br>
+        <span class="client-email">${app.client_email || ''}</span>
+      </td>
+      <td>${app.client_phone || 'Sin teléfono'}</td>
+      <td>${app.barber || 'Cualquiera'}</td>
+      <td><span class="badge-service">${app.service || 'Servicio Estándar'}</span></td>
+      <td>
+        <button class="btn-action btn-cancel" onclick="cancelarCita(${app.id})">Cancelar</button>
+      </td>
+    </tr>
+  `).join('');
+}
 
-    function actualizarMetricas(citas) {
-      document.getElementById('metric-total').innerText = citas.length;
-      
-      const hoy = new Date().toISOString().split('T')[0];
-      const citasHoy = citas.filter(c => c.date === hoy).length;
-      document.getElementById('metric-today').innerText = citasHoy;
+function filtrarCitas() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  const barberFilter = document.getElementById('filter-barber').value;
+  const dateFilter = document.getElementById('filter-date').value;
 
-      // Estimación básica de ingresos ($15 por servicio promedio como ejemplo)
-      const ingresos = citas.length * 15;
-      document.getElementById('metric-revenue').innerText = `$${ingresos}.00`;
+  const filtradas = allAppointments.filter(app => {
+    const coincideNombre = (app.client_name || '').toLowerCase().includes(query) || (app.client_phone || '').includes(query);
+    const coincideBarbero = barberFilter === '' || app.barber === barberFilter;
+    const coincideFecha = dateFilter === '' || app.date === dateFilter;
 
-      if(citas.length > 0) {
-        // Calcular barbero más repetido
-        const barberosCount = {};
-        citas.forEach(c => barberosCount[c.barber] = (barberosCount[c.barber] || 0) + 1);
-        const topBarber = Object.keys(barberosCount).reduce((a, b) => barberosCount[a] > barberosCount[b] ? a : b);
-        document.getElementById('metric-barber').innerText = topBarber;
+    return coincideNombre && coincideBarbero && coincideFecha;
+  });
 
-        // Calcular servicio más repetido
-        const serviciosCount = {};
-        citas.forEach(c => serviciosCount[c.service] = (serviciosCount[c.service] || 0) + 1);
-        const topService = Object.keys(serviciosCount).reduce((a, b) => serviciosCount[a] > serviciosCount[b] ? a : b);
-        document.getElementById('metric-service').innerText = topService;
-      }
-    }
+  renderizarTabla(filtradas);
+}
 
-    // Cargar al iniciar
-    cargarCitasDashboard();
+function limpiarFiltros() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('filter-barber').value = '';
+  document.getElementById('filter-date').value = '';
+  filtrarCitas();
+}
+
+async function cancelarCita(id) {
+  if (!confirm('¿Deseas cancelar esta cita?')) return;
+  try {
+    const res = await fetch(`/api/admin/cancel/${id}`, { method: 'DELETE' });
+    if (res.ok) cargarCitasDashboard();
+  } catch (err) {
+    alert('Error al cancelar la cita.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', cargarCitasDashboard);
   </script>
 </body>
 </html>

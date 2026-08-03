@@ -14,6 +14,11 @@ app.use(express.json());
 const PUBLIC_DIR = path.join(__dirname, 'public');
 app.use(express.static(PUBLIC_DIR));
 
+// El panel de administración vive en una carpeta APARTE que NO se sirve como
+// estática, así nadie puede llegar a él escribiendo la URL del archivo directamente
+// (antes /dashboard.html se veía sin pedir usuario/clave porque estaba en public/).
+const PRIVATE_DIR = path.join(__dirname, 'private');
+
 // 1. Base de datos SQLite
 const db = new sqlite3.Database('./appointments.db', (err) => {
   if (err) console.error('Error al conectar con SQLite:', err);
@@ -232,7 +237,7 @@ app.post('/api/agendar', async (req, res) => {
 
 // 7. Dashboard: Rutas del panel de administración (PROTEGIDAS con auth básica)
 app.get('/dashboard', requireAdminAuth, (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'dashboard.html'));
+  res.sendFile(path.join(PRIVATE_DIR, 'dashboard.html'));
 });
 
 // Alias por compatibilidad: /admin apunta al mismo panel (ya no hay archivo duplicado)
