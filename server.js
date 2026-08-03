@@ -66,11 +66,17 @@ const calendar = google.calendar({ version: 'v3', auth });
 // IMPORTANTE: se especifica host/port explícitos y family: 4 (forzar IPv4).
 // Sin esto, en Render la conexión intenta salir por IPv6 y falla con
 // "connect ENETUNREACH" porque esa red no tiene salida IPv6 disponible.
+// Se usa el puerto 587 (STARTTLS) en vez de 465 (SSL directo), porque el 465
+// puede quedar bloqueado o muy lento en algunas redes de hosting como Render.
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false,
+  requireTLS: true,
   family: 4,
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
