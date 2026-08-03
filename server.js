@@ -63,8 +63,14 @@ const auth = new google.auth.GoogleAuth(googleAuthConfig);
 const calendar = google.calendar({ version: 'v3', auth });
 
 // 3. Configuración del servicio de correo con Nodemailer
+// IMPORTANTE: se especifica host/port explícitos y family: 4 (forzar IPv4).
+// Sin esto, en Render la conexión intenta salir por IPv6 y falla con
+// "connect ENETUNREACH" porque esa red no tiene salida IPv6 disponible.
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  family: 4,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
