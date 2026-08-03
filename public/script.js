@@ -117,6 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (dateInput) {
+        const hoy = new Date().toISOString().split('T')[0];
+        dateInput.min = hoy;
+
         dateInput.addEventListener('change', () => {
             selectedTime = null;
             btnToStep3.disabled = true;
@@ -167,6 +170,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p><strong>Fecha:</strong> ${appointmentData.date}</p>
                     <p><strong>Hora:</strong> ${appointmentData.time}</p>
                 `;
+            } else if (res.status === 409) {
+                alert('Ese horario acaba de ser reservado por otra persona. Por favor elige otro horario.');
+                selectedTime = null;
+                btnToStep3.disabled = true;
+                step3.classList.remove('active-step');
+                step2.classList.add('active-step');
+                indicator3.classList.remove('active');
+                indicator2.classList.add('active');
+                cargarHorariosDisponibles();
             } else {
                 alert('Error: ' + (result.error || 'No se pudo agendar la cita.'));
             }

@@ -139,6 +139,35 @@
     .btn-action { padding: 6px 12px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; border-radius: 2px; }
     .btn-cancel { background: #2a1010; color: #ef4444; border: 1px solid #4a1a1a; transition: all 0.2s; }
     .btn-cancel:hover { background: #ef4444; color: #fff; }
+
+    /* Responsive móvil */
+    @media (max-width: 768px) {
+      body { padding: 20px 12px; }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+
+      .brand-title h1 { font-size: 1.4rem; }
+
+      .btn-refresh { width: 100%; justify-content: center; }
+
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+      .metric-card { padding: 14px; }
+
+      .controls-bar { flex-direction: column; align-items: stretch; }
+
+      .controls-bar input, .controls-bar select, .btn-clear { width: 100%; }
+
+      th, td { padding: 10px; font-size: 0.8rem; }
+    }
+
+    @media (max-width: 420px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>

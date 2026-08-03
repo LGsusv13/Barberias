@@ -3,13 +3,16 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
-const path = require('path'); // <-- Añadido para asegurar que encuentre el dashboard
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+
+// Servimos SOLO la carpeta public (nunca la raíz, que contiene .env, server.js, etc.)
+const PUBLIC_DIR = path.join(__dirname, 'public');
+app.use(express.static(PUBLIC_DIR));
 
 // 1. Base de datos SQLite
 const db = new sqlite3.Database('./appointments.db', (err) => {
@@ -34,10 +37,24 @@ db.serialize(() => {
 });
 
 // 2. Configuración de Google Calendar API con Cuenta de Servicio
-const auth = new google.auth.GoogleAuth({
-  keyFile: 'credentials.json',
-  scopes: ['https://www.googleapis.com/auth/calendar'],
-});
+// En Render no se puede subir credentials.json como archivo persistente, así que
+// soportamos dos formas: variable de entorno GOOGLE_CREDENTIALS_JSON (recomendado
+// para producción/Render) o archivo local credentials.json (para desarrollo local).
+let googleAuthConfig = { scopes: ['https://www.googleapis.com/auth/calendar'] };
+
+if (process.env.GOOGLE_CREDENTIALS_JSON) {
+  try {
+    googleAuthConfig.credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+    console.log('>>> Credenciales de Google cargadas desde variable de entorno.');
+  } catch (e) {
+    console.error('❌ GOOGLE_CREDENTIALS_JSON no es un JSON válido:', e.message);
+  }
+} else {
+  googleAuthConfig.keyFile = 'credentials.json';
+  console.log('>>> Usando credentials.json local (modo desarrollo).');
+}
+
+const auth = new google.auth.GoogleAuth(googleAuthConfig);
 const calendar = google.calendar({ version: 'v3', auth });
 
 // 3. Configuración del servicio de correo con Nodemailer
@@ -49,7 +66,33 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// 4. Ruta GET para consultar los horarios reservados
+// 4. Autenticación básica para proteger el panel de administración.
+// Definir ADMIN_USER y ADMIN_PASSWORD en el .env (nunca en el código).
+function requireAdminAuth(req, res, next) {
+  const adminUser = process.env.ADMIN_USER;
+  const adminPass = process.env.ADMIN_PASSWORD;
+
+  if (!adminUser || !adminPass) {
+    console.warn('⚠️ ADMIN_USER/ADMIN_PASSWORD no configurados: el panel admin queda SIN PROTECCIÓN.');
+    return next();
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    res.set('WWW-Authenticate', 'Basic realm="Panel Administrador"');
+    return res.status(401).send('Autenticación requerida.');
+  }
+
+  const [user, pass] = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+  if (user === adminUser && pass === adminPass) {
+    return next();
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="Panel Administrador"');
+  return res.status(401).send('Credenciales inválidas.');
+}
+
+// 5. Ruta GET para consultar los horarios reservados
 app.get('/api/booked-slots', async (req, res) => {
   const { date, barber } = req.query;
   if (!date) return res.status(400).json({ error: 'Falta la fecha.' });
@@ -60,7 +103,7 @@ app.get('/api/booked-slots', async (req, res) => {
     await new Promise((resolve) => {
       let query = `SELECT time FROM appointments WHERE date = ?`;
       let params = [date];
-      
+
       if (barber && barber !== 'Cualquiera' && barber.trim() !== '') {
         query += ` AND barber = ?`;
         params.push(barber);
@@ -98,12 +141,21 @@ app.get('/api/booked-slots', async (req, res) => {
   }
 });
 
-// 5. Ruta principal para agendar citas (CORREGIDA PARA NO CONGELARSE)
+// 6. Ruta principal para agendar citas
 app.post('/api/agendar', async (req, res) => {
   const { name, email, service, date, time, barber, clientPhone } = req.body;
 
   if (!name || !email || !service || !date || !time) {
     return res.status(400).json({ error: 'Faltan datos obligatorios para la reserva.' });
+  }
+
+  // Validar que la fecha/hora no sea en el pasado
+  const requestedDateTime = new Date(`${date}T${time}:00`);
+  if (isNaN(requestedDateTime.getTime())) {
+    return res.status(400).json({ error: 'Fecha u hora inválida.' });
+  }
+  if (requestedDateTime.getTime() < Date.now()) {
+    return res.status(400).json({ error: 'No se puede reservar una fecha u hora que ya pasó.' });
   }
 
   const emailFinal = email || 'No especificado';
@@ -112,6 +164,19 @@ app.post('/api/agendar', async (req, res) => {
   const timeZone = process.env.TIMEZONE || 'America/Guayaquil';
 
   try {
+    // Verificar que el horario no esté ya ocupado (evita doble reserva por carrera)
+    const yaOcupado = await new Promise((resolve) => {
+      db.get(
+        `SELECT id FROM appointments WHERE date = ? AND time = ? AND barber = ?`,
+        [date, time, barberName],
+        (err, row) => resolve(!!row)
+      );
+    });
+
+    if (yaOcupado) {
+      return res.status(409).json({ error: 'Ese horario ya fue reservado. Por favor elige otro.' });
+    }
+
     if (calendarId) {
       try {
         const startString = `${date}T${time}:00`;
@@ -143,10 +208,10 @@ app.post('/api/agendar', async (req, res) => {
           return res.status(500).json({ error: 'Error al guardar la cita.' });
         }
 
-        // 🚀 ¡AQUÍ ESTÁ LA MAGIA! Respondemos al cliente INMEDIATAMENTE.
+        // Respondemos al cliente INMEDIATAMENTE.
         res.json({ success: true, message: '¡Cita agendada con éxito!' });
 
-        // ✉️ El correo se envía en segundo plano (sin 'await').
+        // El correo se envía en segundo plano (sin 'await').
         const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
         const mailOptions = {
           from: `"Barbería & Peluquería Elite" <${process.env.EMAIL_USER}>`,
@@ -165,26 +230,28 @@ app.post('/api/agendar', async (req, res) => {
   }
 });
 
-// 6. Dashboard: Rutas del panel de administración (RUTAS BLINDADAS)
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+// 7. Dashboard: Rutas del panel de administración (PROTEGIDAS con auth básica)
+app.get('/dashboard', requireAdminAuth, (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'dashboard.html'));
 });
 
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
+// Alias por compatibilidad: /admin apunta al mismo panel (ya no hay archivo duplicado)
+app.get('/admin', (req, res) => res.redirect('/dashboard'));
 
-app.get('/api/admin/appointments', (req, res) => {
+app.get('/api/admin/appointments', requireAdminAuth, (req, res) => {
   db.all(`SELECT * FROM appointments ORDER BY date DESC, time DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-// 7. Dashboard: Cancelar cita
-app.delete('/api/admin/cancel/:id', (req, res) => {
+// 8. Dashboard: Cancelar cita (PROTEGIDA, y ahora verifica que sí existía)
+app.delete('/api/admin/cancel/:id', requireAdminAuth, (req, res) => {
   db.run(`DELETE FROM appointments WHERE id = ?`, [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'La cita no existe o ya fue cancelada.' });
+    }
     res.json({ success: true });
   });
 });

@@ -779,3 +779,167 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
     cursor: not-allowed;
     text-decoration: line-through;
 }
+
+/* ==========================================================================
+   RESPONSIVE - TABLET (hasta 992px)
+   ========================================================================== */
+@media (max-width: 992px) {
+  .navbar {
+    padding: 16px 25px;
+  }
+
+  .hero h1 {
+    font-size: 2.4rem;
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVE - MÓVIL (hasta 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Navbar: apilada, sin links de texto largo, solo logo + botón de reserva */
+  .navbar {
+    padding: 14px 18px;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .logo {
+    font-size: 1.05rem;
+  }
+
+  .btn-gold-sm {
+    padding: 8px 14px;
+    font-size: 0.7rem;
+  }
+
+  /* Hero */
+  .hero {
+    min-height: 100vh;
+    padding: 0 18px;
+  }
+
+  .hero h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero p {
+    font-size: 0.95rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+  }
+
+  .btn-gold, .btn-outline {
+    width: 100%;
+    padding: 14px 20px;
+    text-align: center;
+  }
+
+  /* Secciones generales */
+  .services-section, .team-section, .booking-section {
+    margin: 60px auto;
+    padding: 0 16px;
+  }
+
+  .section-header h2 {
+    font-size: 1.7rem;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .barber-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  /* Reservas */
+  .booking-card {
+    padding: 30px 20px;
+  }
+
+  .booking-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .step-progress {
+    gap: 6px;
+  }
+
+  .step {
+    font-size: 0.65rem;
+  }
+
+  .slots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    gap: 8px;
+  }
+
+  .step-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-back {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Panel Administrador */
+  .dashboard-container {
+    margin: 90px auto 50px;
+    padding: 0 14px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .metric-card, .metric-card h2 {
+    padding: 15px;
+  }
+
+  .controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controls-bar input, .controls-bar select, .btn-clear {
+    width: 100%;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVE - MÓVIL PEQUEÑO (hasta 420px)
+   ========================================================================== */
+@media (max-width: 420px) {
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .slots-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
