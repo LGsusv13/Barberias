@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
-const { Resend } = require('resend');
 const { google } = require('googleapis');
+const { Resend } = require('resend');
 const path = require('path');
 require('dotenv').config();
 
@@ -63,24 +63,43 @@ if (process.env.GOOGLE_CREDENTIALS_JSON) {
     console.error('❌ GOOGLE_CREDENTIALS_JSON no es un JSON válido:', e.message);
   }
 } else {
-  googleAuthConfig.keyFile = 'credentials.json';
-  console.log('>>> Usando credentials.json local (modo desarrollo).');
+  // Render monta los "Secret Files" en /etc/secrets/<nombre>. Si existe ahí, se
+  // usa esa ruta; si no, se busca credentials.json en la raíz del proyecto
+  // (para desarrollo local).
+  const secretFilePath = '/etc/secrets/credentials.json';
+  if (require('fs').existsSync(secretFilePath)) {
+    googleAuthConfig.keyFile = secretFilePath;
+    console.log('>>> Credenciales de Google cargadas desde Secret File de Render.');
+  } else {
+    googleAuthConfig.keyFile = 'credentials.json';
+    console.log('>>> Usando credentials.json local (modo desarrollo).');
+  }
 }
 
 const auth = new google.auth.GoogleAuth(googleAuthConfig);
 const calendar = google.calendar({ version: 'v3', auth });
 
 // 3. Configuración del servicio de correo con Resend.
-// Se usa Resend (envío por API/HTTPS) en vez de Gmail por SMTP porque Render
-// bloquea las conexiones SMTP salientes (puertos 465/587), causando "Connection
-// timeout" sin importar la configuración. Resend usa el puerto 443 (HTTPS),
-// el mismo que cualquier página web normal, así que nunca queda bloqueado.
+// Se usa una API HTTPS (no SMTP) porque Render bloquea las conexiones SMTP
+// salientes (puertos 465/587), causando "Connection timeout" sin importar la
+// configuración. Resend usa el puerto 443 (HTTPS), como cualquier página web
+// normal, así que nunca queda bloqueado.
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Mientras no verifiques tu propio dominio en resend.com, solo puedes enviar
 // desde esta dirección de prueba. Una vez verifiques tu dominio, cambia
 // FROM_EMAIL en el .env a algo como "citas@tudominio.com".
 const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
+
+async function enviarCorreo({ to, subject, html }) {
+  const { error } = await resend.emails.send({
+    from: `Barbería & Peluquería Elite <${FROM_EMAIL}>`,
+    to: to.filter(Boolean),
+    subject,
+    html,
+  });
+  if (error) throw new Error(error.message || JSON.stringify(error));
+}
 
 // 4. Autenticación básica para proteger el panel de administración.
 // Definir ADMIN_USER y ADMIN_PASSWORD en el .env (nunca en el código).
@@ -220,20 +239,13 @@ app.post('/api/agendar', async (req, res) => {
     // El correo se envía en segundo plano, vía Resend (API/HTTPS).
     const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;
 
-    resend.emails.send({
-      from: `Barbería & Peluquería Elite <${FROM_EMAIL}>`,
-      to: [emailFinal, targetBarberEmail].filter(Boolean),
+    enviarCorreo({
+      to: [emailFinal, targetBarberEmail],
       subject: '¡Confirmación de tu Cita!',
       html: `<p>Hola ${name}, tu cita para ${service} el ${date} a las ${time} ha sido reservada.</p>`,
     })
-      .then(({ error }) => {
-        if (error) {
-          console.error('❌ Error enviando correo (Resend):', error.message || error);
-        } else {
-          console.log('✉️ Correo enviado en segundo plano (Resend).');
-        }
-      })
-      .catch(mailErr => console.error('❌ Error enviando correo (fondo):', mailErr.message));
+      .then(() => console.log('✉️ Correo enviado en segundo plano (Resend).'))
+      .catch(mailErr => console.error('❌ Error enviando correo (Resend):', mailErr.message));
   } catch (err) {
     res.status(500).json({ error: 'Ocurrió un problema al procesar la cita.' });
   }
