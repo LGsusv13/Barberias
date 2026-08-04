@@ -2,21 +2,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Menú hamburguesa (móvil)
     const menuToggle = document.getElementById('menu-toggle');
     const navLinks = document.getElementById('nav-links');
+    const navBackdrop = document.getElementById('nav-backdrop');
+
+    function cerrarMenu() {
+        navLinks.classList.remove('open');
+        menuToggle.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        if (navBackdrop) navBackdrop.classList.remove('open');
+    }
 
     if (menuToggle && navLinks) {
         menuToggle.addEventListener('click', () => {
             const abierto = navLinks.classList.toggle('open');
             menuToggle.classList.toggle('open', abierto);
             menuToggle.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+            if (navBackdrop) navBackdrop.classList.toggle('open', abierto);
         });
 
         navLinks.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('open');
-                menuToggle.classList.remove('open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-            });
+            link.addEventListener('click', cerrarMenu);
         });
+
+        if (navBackdrop) {
+            navBackdrop.addEventListener('click', cerrarMenu);
+        }
     }
 
     const bookingForm = document.getElementById('bookingForm');
