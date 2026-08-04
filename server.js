@@ -101,6 +101,33 @@ async function enviarCorreo({ to, subject, html }) {
   if (error) throw new Error(error.message || JSON.stringify(error));
 }
 
+// Notificación al barbero por Telegram: vía HTTPS (nunca bloqueado en Render),
+// gratis, sin necesitar dominio verificado ni aprobación de nadie.
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+async function notificarBarberoPorTelegram(texto) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    throw new Error('Faltan TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID en las variables de entorno.');
+  }
+
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const respuesta = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: TELEGRAM_CHAT_ID,
+      text: texto,
+      parse_mode: 'HTML',
+    }),
+  });
+
+  const data = await respuesta.json();
+  if (!data.ok) {
+    throw new Error(`Telegram respondió con error: ${data.description || JSON.stringify(data)}`);
+  }
+}
+
 // 4. Autenticación básica para proteger el panel de administración.
 // Definir ADMIN_USER y ADMIN_PASSWORD en el .env (nunca en el código).
 function requireAdminAuth(req, res, next) {
@@ -235,6 +262,19 @@ app.post('/api/agendar', async (req, res) => {
 
     // Respondemos al cliente INMEDIATAMENTE.
     res.json({ success: true, message: '¡Cita agendada con éxito!' });
+
+    // Notificación al barbero por Telegram (en segundo plano).
+    const mensajeTelegram =
+      `✂️ <b>Nueva cita agendada</b>\n` +
+      `Cliente: ${name}\n` +
+      `Teléfono: ${clientPhone || 'No especificado'}\n` +
+      `Servicio: ${service}\n` +
+      `Barbero: ${barberName}\n` +
+      `Fecha: ${date} a las ${time}`;
+
+    notificarBarberoPorTelegram(mensajeTelegram)
+      .then(() => console.log('📩 Notificación enviada al barbero por Telegram.'))
+      .catch(tgErr => console.error('❌ Error notificando por Telegram:', tgErr.message));
 
     // El correo se envía en segundo plano, vía Resend (API/HTTPS).
     const targetBarberEmail = process.env.BARBER_EMAIL || process.env.EMAIL_USER;

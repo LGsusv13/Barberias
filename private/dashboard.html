@@ -162,7 +162,44 @@
 
       .controls-bar input, .controls-bar select, .btn-clear { width: 100%; }
 
-      th, td { padding: 10px; font-size: 0.8rem; }
+      th, td { padding: 10px; font-size: 0.85rem; }
+
+      /* Convertir la tabla en tarjetas apiladas (mas facil de leer que una tabla angosta) */
+      thead { display: none; }
+
+      table, tbody, tr, td { display: block; width: 100%; }
+
+      tr {
+        background: #161616;
+        border: 1px solid #262626;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        padding: 12px;
+      }
+
+      td {
+        border: none;
+        padding: 8px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        text-align: right;
+      }
+
+      td[data-label]:not([data-label=""])::before {
+        content: attr(data-label);
+        color: #888;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: left;
+        flex-shrink: 0;
+      }
+
+      td.time-col { text-align: right; }
+
+      .btn-cancel { width: 100%; padding: 10px; }
     }
 
     @media (max-width: 420px) {
@@ -176,7 +213,7 @@
     <header>
       <div class="brand-title">
         <h1>PANEL ADMINISTRADOR</h1>
-        <p>Gestión de Agendamiento & Métricas - Barbería Elite</p>
+        <p id="admin-business-name">Gestión de Agendamiento & Métricas - Barbería Elite</p>
       </div>
       <button class="btn-refresh" onclick="cargarCitasDashboard()">
         <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
@@ -253,7 +290,15 @@
     </div>
   </div>
 
+  <script src="/config.js"></script>
   <script>
+if (window.SITE_CONFIG && window.SITE_CONFIG.businessName) {
+  document.title = `Panel Administrador | ${window.SITE_CONFIG.businessName}`;
+  const el = document.getElementById('admin-business-name');
+  if (el) el.textContent = `Gestión de Agendamiento & Métricas - ${window.SITE_CONFIG.businessName}`;
+}
+</script>
+<script>
 let allAppointments = [];
 
 const servicePrices = {
@@ -325,15 +370,15 @@ function renderizarTabla(citas) {
 
   tableBody.innerHTML = citas.map(app => `
     <tr>
-      <td class="time-col">${app.date || 'N/A'}<br><span style="color:#c5a059;">${app.time || ''} hs</span></td>
-      <td>
+      <td class="time-col" data-label="Fecha y Hora">${app.date || 'N/A'}<br><span style="color:#c5a059;">${app.time || ''} hs</span></td>
+      <td data-label="Cliente">
         <span class="client-name">${app.client_name || 'Sin nombre'}</span><br>
         <span class="client-email">${app.client_email || ''}</span>
       </td>
-      <td>${app.client_phone || 'Sin teléfono'}</td>
-      <td>${app.barber || 'Cualquiera'}</td>
-      <td><span class="badge-service">${app.service || 'Servicio Estándar'}</span></td>
-      <td>
+      <td data-label="Teléfono">${app.client_phone || 'Sin teléfono'}</td>
+      <td data-label="Barbero">${app.barber || 'Cualquiera'}</td>
+      <td data-label="Servicio"><span class="badge-service">${app.service || 'Servicio Estándar'}</span></td>
+      <td data-label="">
         <button class="btn-action btn-cancel" onclick="cancelarCita(${app.id})">Cancelar</button>
       </td>
     </tr>

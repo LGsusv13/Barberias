@@ -1,4 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Menú hamburguesa (móvil)
+    const menuToggle = document.getElementById('menu-toggle');
+    const navLinks = document.getElementById('nav-links');
+
+    if (menuToggle && navLinks) {
+        menuToggle.addEventListener('click', () => {
+            const abierto = navLinks.classList.toggle('open');
+            menuToggle.classList.toggle('open', abierto);
+            menuToggle.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+        });
+
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+                menuToggle.classList.remove('open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+
     const bookingForm = document.getElementById('bookingForm');
     
     // Pasos y Botones de Navegación

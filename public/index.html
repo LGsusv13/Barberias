@@ -16,8 +16,11 @@
 
   <!-- Navbar Elegante -->
   <header class="navbar">
-    <div class="logo">BARBERÍA ELITE</div>
-    <nav class="nav-links">
+    <div class="logo" id="site-logo">BARBERÍA ELITE</div>
+    <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-links" id="nav-links">
       <a href="#inicio">Inicio</a>
       <a href="#servicios">Servicios</a>
       <a href="#equipo">Barberos</a>
@@ -30,9 +33,9 @@
   <section class="hero" id="inicio">
     <div class="hero-overlay"></div>
     <div class="hero-content">
-      <span class="vintage-subtitle">ESTABLECIDO EN 2024</span>
-      <h1>EL ARTE DEL AFEITADO Y CORTE TRADICIONAL</h1>
-      <p>Un espacio exclusivo diseñado para el hombre moderno con el carácter y la distinción de la barbería clásica.</p>
+      <span class="vintage-subtitle" id="hero-established">ESTABLECIDO EN 2024</span>
+      <h1 id="hero-title">EL ARTE DEL AFEITADO Y CORTE TRADICIONAL</h1>
+      <p id="hero-description">Un espacio exclusivo diseñado para el hombre moderno con el carácter y la distinción de la barbería clásica.</p>
       <div class="hero-actions">
         <a href="#reserva" class="btn-gold">Agendar Cita</a>
         <a href="#servicios" class="btn-outline">Ver Menú de Servicios</a>
@@ -48,33 +51,8 @@
       <div class="divider"></div>
     </div>
 
-    <div class="services-grid">
-      <div class="service-card">
-        <div class="service-img" style="background-image: url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=600');"></div>
-        <div class="service-info">
-          <h3>Corte Clasico & Peinado</h3>
-          <p>Corte personalizado con asesoría de imagen, lavado revitalizante y peinado con pomada tradicional.</p>
-          <span class="service-price">$20.00</span>
-        </div>
-      </div>
-
-      <div class="service-card">
-        <div class="service-img" style="background-image: url('https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=600');"></div>
-        <div class="service-info">
-          <h3>Ritual de Barba Tradicional</h3>
-          <p>Perfilado con navaja, tratamiento con toalla caliente, aceites esenciales y bálsamo hidratante.</p>
-          <span class="service-price">$15.00</span>
-        </div>
-      </div>
-
-      <div class="service-card">
-        <div class="service-img" style="background-image: url('https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=600');"></div>
-        <div class="service-info">
-          <h3>Experiencia Elite</h3>
-          <p>Servicio completo de corte, barba, exfoliación facial y bebida de cortesía a elección.</p>
-          <span class="service-price">$30.00</span>
-        </div>
-      </div>
+    <div class="services-grid" id="services-grid">
+      <!-- Se genera automáticamente desde config.js -->
     </div>
   </section>
 
@@ -86,22 +64,8 @@
       <div class="divider"></div>
     </div>
 
-    <div class="team-grid">
-      <div class="barber-card" data-barber="Carlos Silva">
-        <div class="barber-img" style="background-image: url('https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=600');"></div>
-        <div class="barber-details">
-          <h3>Carlos Silva</h3>
-          <span class="barber-role">Master Barber / Especialista en Cortes Clásicos</span>
-        </div>
-      </div>
-
-      <div class="barber-card" data-barber="Mateo Rossi">
-        <div class="barber-img" style="background-image: url('https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&q=80&w=600');"></div>
-        <div class="barber-details">
-          <h3>Mateo Rossi</h3>
-          <span class="barber-role">Especialista en Barba & Ritual a Navaja</span>
-        </div>
-      </div>
+    <div class="team-grid" id="team-grid">
+      <!-- Se genera automáticamente desde config.js -->
     </div>
   </section>
 
@@ -128,18 +92,12 @@
             <label for="barber">Seleccionar Barbero</label>
             <select id="barber" name="barber" required>
               <option value="Cualquiera">Cualquier Maestro Disponible</option>
-              <option value="Carlos Silva">Carlos Silva (Master Barber)</option>
-              <option value="Mateo Rossi">Mateo Rossi (Especialista en Barba)</option>
             </select>
           </div>
 
           <div class="input-group">
             <label for="service">Servicio</label>
-            <select id="service" name="service" required>
-              <option value="Corte de Cabello">Corte Clásico & Peinado ($20.00)</option>
-              <option value="Corte y Barba">Ritual de Barba Tradicional ($15.00)</option>
-              <option value="Experiencia Elite">Experiencia Elite Completa ($30.00)</option>
-            </select>
+            <select id="service" name="service" required></select>
           </div>
 
           <button type="button" class="btn-next" id="btn-to-step-2">Continuar</button>
@@ -203,6 +161,8 @@
     </div>
   </section>
 
+  <script src="config.js"></script>
+  <script src="render-config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
