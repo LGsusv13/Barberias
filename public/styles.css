@@ -18,6 +18,9 @@
   --border-dark: #262626;
   --font-heading: 'Cinzel', serif;
   --font-body: 'Montserrat', sans-serif;
+  --heading-letter-spacing: 1px;
+  --radius: 0px;
+  --card-shadow: none;
 }
 
 * {
@@ -51,7 +54,7 @@ img {
    -------------------------------------------------------------------------- */
 h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   font-family: var(--font-heading);
-  letter-spacing: 1px;
+  letter-spacing: var(--heading-letter-spacing);
 }
 
 .divider {
@@ -189,6 +192,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
 .btn-gold-sm {
   border: 1px solid var(--gold-primary);
   color: var(--gold-primary);
+  border-radius: var(--radius);
   padding: 11px 16px;
   text-decoration: none;
   font-size: 0.88rem;
@@ -280,6 +284,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   background: var(--gold-primary);
   color: var(--bg-dark);
   border: none;
+  border-radius: var(--radius);
 }
 
 .btn-gold:hover {
@@ -291,6 +296,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   color: var(--text-main);
   font-weight: 600;
   background: transparent;
+  border-radius: var(--radius);
 }
 
 .btn-outline:hover {
@@ -316,6 +322,8 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
 .service-card {
   background: var(--bg-card);
   border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
   transition: transform 0.3s, border-color 0.3s;
 }
@@ -379,6 +387,8 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
 .barber-card {
   background: var(--bg-card);
   border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -395,7 +405,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
 .barber-img {
   width: 100px;
   height: 100px;
-  border-radius: 50%;
+  border-radius: 50%; /* siempre circular, independiente de --radius */
   background-size: cover;
   background-position: center;
   border: 2px solid var(--gold-primary);
@@ -425,6 +435,8 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
 .booking-card {
   background: var(--bg-card);
   border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
   padding: 28px 18px;
 }
 
@@ -498,6 +510,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   padding: 16px 16px;
   background: var(--bg-input);
   border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
   color: var(--text-main);
   font-size: 1.05rem; /* 16px: evita el zoom automático de iOS al enfocar */
   outline: none;
@@ -524,9 +537,9 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   padding: 15px 8px;
   min-height: 52px; /* tamaño táctil cómodo */
   font-size: 1.02rem;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
-  border-radius: 4px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
@@ -575,6 +588,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   background: var(--gold-primary);
   color: var(--bg-dark);
   border: none;
+  border-radius: var(--radius);
   font-weight: 700;
   font-size: 1rem;
   text-transform: uppercase;
@@ -596,6 +610,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   width: 100%;
   background: transparent;
   border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
   color: var(--text-muted);
   padding: 18px;
   text-transform: uppercase;
@@ -644,6 +659,7 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
   display: inline-block;
   width: 100%;
   margin-top: 20px;
+  border-radius: var(--radius);
   border: 1px solid var(--gold-primary);
   color: var(--gold-primary);
   padding: 15px;
@@ -658,6 +674,38 @@ h1, h2, h3, .logo, .vintage-subtitle, .sub-title {
 .btn-calendar:hover {
   background: var(--gold-primary);
   color: var(--bg-dark);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.site-footer {
+  text-align: center;
+  padding: 30px 16px;
+  border-top: 1px solid var(--border-dark);
+  margin-top: 20px;
+}
+
+.site-footer p {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+.footer-admin-link {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-decoration: none;
+  border: 1px solid var(--border-dark);
+  padding: 8px 16px;
+  transition: all 0.3s;
+  border-radius: var(--radius);
+}
+
+.footer-admin-link:hover {
+  color: var(--gold-primary);
+  border-color: var(--gold-primary);
 }
 
 /* ==========================================================================

@@ -22,6 +22,33 @@ window.SITE_CONFIG = {
   heroTitle: "EL ARTE DEL AFEITADO Y CORTE TRADICIONAL",
   heroDescription: "Un espacio exclusivo diseñado para el hombre moderno con el carácter y la distinción de la barbería clásica.",
 
+  // Imagen de fondo de la portada (hero). Usa una URL de imagen ancha,
+  // idealmente de al menos 1600px de ancho para que se vea nítida.
+  heroImageUrl: "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=1600",
+
+  // Ícono que aparece en la pestaña del navegador (favicon). Usa una imagen
+  // cuadrada (ej. 512x512px), formato .png o .ico. Déjalo vacío ("") para
+  // usar el ícono por defecto del navegador.
+  faviconUrl: "",
+
+  // ---------------------------------------------------------------------
+  // TIPOGRAFÍA — Cinzel (títulos elegantes/vintage) + Montserrat (texto)
+  // ---------------------------------------------------------------------
+  fonts: {
+    googleFontsUrl: "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Montserrat:wght@300;400;500;600;700&display=swap",
+    heading: "'Cinzel', serif",
+    body: "'Montserrat', sans-serif",
+    headingLetterSpacing: "1px",
+  },
+
+  // ---------------------------------------------------------------------
+  // ESTILO VISUAL — esquinas rectas y planas (look vintage/clásico)
+  // ---------------------------------------------------------------------
+  style: {
+    borderRadius: "0px",
+    cardShadow: false,
+  },
+
   // ---------------------------------------------------------------------
   // COLORES (se aplican automáticamente a todo el sitio)
   // ---------------------------------------------------------------------

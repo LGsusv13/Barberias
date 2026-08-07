@@ -20,9 +20,53 @@
   if (c.textMain) root.style.setProperty('--text-main', c.textMain);
   if (c.textMuted) root.style.setProperty('--text-muted', c.textMuted);
 
+  // 1b. Tipografía: carga la fuente de Google Fonts que definas y la aplica
+  if (cfg.fonts) {
+    const fontLink = document.getElementById('google-fonts-link');
+    if (fontLink && cfg.fonts.googleFontsUrl) {
+      fontLink.href = cfg.fonts.googleFontsUrl;
+    }
+    if (cfg.fonts.heading) root.style.setProperty('--font-heading', cfg.fonts.heading);
+    if (cfg.fonts.body) root.style.setProperty('--font-body', cfg.fonts.body);
+    if (cfg.fonts.headingLetterSpacing !== undefined) {
+      root.style.setProperty('--heading-letter-spacing', cfg.fonts.headingLetterSpacing);
+    }
+  }
+
+  // 1c. Estilo visual: bordes redondeados o rectos, con o sin sombra
+  if (cfg.style) {
+    if (cfg.style.borderRadius !== undefined) root.style.setProperty('--radius', cfg.style.borderRadius);
+    if (cfg.style.cardShadow) {
+      root.style.setProperty('--card-shadow', '0 8px 24px rgba(0,0,0,0.35)');
+    } else {
+      root.style.setProperty('--card-shadow', 'none');
+    }
+  }
+
   // 2. Título de la pestaña del navegador
   if (cfg.businessName) {
     document.title = `${cfg.businessName} | Citas & Barbería Tradicional`;
+    const footerName = document.getElementById('footer-business-name');
+    if (footerName) {
+      footerName.textContent = `© ${new Date().getFullYear()} ${cfg.businessName}. Todos los derechos reservados.`;
+    }
+  }
+
+  // 2b. Favicon (ícono de la pestaña)
+  if (cfg.faviconUrl) {
+    let iconLink = document.querySelector('link[rel="icon"]');
+    if (!iconLink) {
+      iconLink = document.createElement('link');
+      iconLink.rel = 'icon';
+      document.head.appendChild(iconLink);
+    }
+    iconLink.href = cfg.faviconUrl;
+  }
+
+  // 2c. Imagen de fondo del hero (portada)
+  const heroSection = document.querySelector('.hero');
+  if (heroSection && cfg.heroImageUrl) {
+    heroSection.style.backgroundImage = `url('${cfg.heroImageUrl}')`;
   }
 
   // 3. Logo (navbar)
